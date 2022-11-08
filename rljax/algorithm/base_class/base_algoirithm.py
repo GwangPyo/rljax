@@ -38,6 +38,7 @@ class BaseAlgorithm(ABC):
         self.gamma = gamma
         self.max_grad_norm = max_grad_norm
         self.discrete_action = False if type(action_space) == Box else True
+        self.verbose = True
 
     def get_mask(self, env, done):
         return done if self.episode_step != env._max_episode_steps or self.discrete_action else False
@@ -133,6 +134,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         self.start_steps = start_steps
         self.update_interval = update_interval
         self.update_interval_target = update_interval_target
+        self.iter_episode = 0
+        self.log_score = 0
 
         if update_interval_target:
             self._update_target = jax.jit(partial(soft_update, tau=1.0))
@@ -142,7 +145,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
     def is_update(self):
         return self.agent_step % self.update_interval == 0 and self.agent_step >= self.start_steps
 
-    def step(self, env, state):
+    def step(self, env, state, logger=None, log_interval=4):
         self.agent_step += 1
         self.episode_step += 1
 
@@ -152,12 +155,22 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             action = self.explore(state)
 
         next_state, reward, done, _ = env.step(action)
+        self.log_score += reward
+
         mask = self.get_mask(env, done)
         self.buffer.append(state, action, reward, mask, next_state, done)
 
         if done:
             self.episode_step = 0
             next_state = env.reset()
+            self.iter_episode += 1
+            if logger is not None:
+                logger.record("train/n_episode", self.iter_episode)
+                logger.record_mean("train/score", self.log_score)
+                if self.iter_episode % log_interval == 0 and self.verbose:
+
+                    logger.dump(self.agent_step)
+            self.log_score = 0
 
         return next_state
 

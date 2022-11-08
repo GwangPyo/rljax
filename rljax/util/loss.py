@@ -8,7 +8,7 @@ import jax.numpy as jnp
 def huber(td: jnp.ndarray) -> jnp.ndarray:
     """ Huber function. """
     abs_td = jnp.abs(td)
-    return jnp.where(abs_td <= 1.0, jnp.square(td), abs_td)
+    return jnp.where(abs_td <= 1.0, 0.5 * jnp.square(td), abs_td - 0.5)
 
 
 @partial(jax.jit, static_argnums=3)
@@ -27,6 +27,8 @@ def quantile_loss(
         element_wise_loss = huber(td)
     else:
         NotImplementedError
-    element_wise_loss *= jax.lax.stop_gradient(jnp.abs(cum_p[..., None] - (td < 0)))
+    element_wise_loss = element_wise_loss * jax.lax.stop_gradient(jnp.abs(cum_p[..., None] - (td < 0)))
     batch_loss = element_wise_loss.sum(axis=1).mean(axis=1, keepdims=True)
     return (batch_loss * weight).mean()
+
+

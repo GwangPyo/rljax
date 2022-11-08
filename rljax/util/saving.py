@@ -13,8 +13,19 @@ def save_params(params, path):
     np.savez(path, **params)
 
 
+def unroll(x: dict):
+    for k in x.keys():
+        if isinstance(x[k], dict):
+            x[k] = unroll(x[k])
+        elif isinstance(x[k], np.ndarray):
+            if x[k].dtype == np.object:
+                x[k] = x[k].item()
+    return x
+
 def load_params(path):
     """
     Load parameters.
     """
-    return hk.data_structures.to_immutable_dict(np.load(path))
+    data = dict(np.load(path, allow_pickle=True))
+    data = unroll(data)
+    return hk.data_structures.to_immutable_dict(data)

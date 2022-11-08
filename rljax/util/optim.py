@@ -1,10 +1,10 @@
 from functools import partial
 from typing import Any, Tuple
-
+import optax
 import haiku as hk
 import jax
 import jax.numpy as jnp
-from jax.experimental import optix
+import optax
 from jax.tree_util import tree_flatten
 
 
@@ -23,10 +23,11 @@ def optimize(
         *args,
         **kwargs,
     )
-    if max_grad_norm is not None:
+    if max_grad_norm:
         grad = clip_gradient_norm(grad, max_grad_norm)
     update, opt_state = opt(grad, opt_state)
-    params_to_update = optix.apply_updates(params_to_update, update)
+
+    params_to_update = optax.apply_updates(params_to_update, update)
     return opt_state, params_to_update, loss, aux
 
 
@@ -67,7 +68,8 @@ def soft_update(
     """
     Update target network using Polyak-Ruppert Averaging.
     """
-    return jax.tree_multimap(lambda t, s: (1 - tau) * t + tau * s, target_params, online_params)
+    return optax.incremental_update(new_tensors=online_params, old_tensors=target_params,
+                                    step_size=tau)
 
 
 @jax.jit

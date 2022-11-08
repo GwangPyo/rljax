@@ -5,7 +5,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from rljax.algorithm.base_class import OnPolicyActorCritic
 from rljax.network import ContinuousVFunction, StateIndependentGaussianPolicy
@@ -65,13 +65,13 @@ class PPO(OnPolicyActorCritic):
         # Critic.
         self.critic = hk.without_apply_rng(hk.transform(fn_critic))
         self.params_critic = self.params_critic_target = self.critic.init(next(self.rng), *self.fake_args_critic)
-        opt_init, self.opt_critic = optix.adam(lr_critic)
+        opt_init, self.opt_critic = optax.adam(lr_critic)
         self.opt_state_critic = opt_init(self.params_critic)
 
         # Actor.
         self.actor = hk.without_apply_rng(hk.transform(fn_actor))
         self.params_actor = self.params_actor_target = self.actor.init(next(self.rng), *self.fake_args_actor)
-        opt_init, self.opt_actor = optix.adam(lr_actor)
+        opt_init, self.opt_actor = optax.adam(lr_actor)
         self.opt_state_actor = opt_init(self.params_actor)
 
         # Other parameters.
@@ -100,7 +100,7 @@ class PPO(OnPolicyActorCritic):
         mean, log_std = self.actor.apply(params_actor, state)
         return reparameterize_gaussian_and_tanh(mean, log_std, key, True)
 
-    def update(self, writer=None):
+    def update(self, logger=None):
         state, action, reward, done, log_pi_old, next_state = self.buffer.get()
 
         # Calculate gamma-returns and GAEs.
@@ -142,9 +142,9 @@ class PPO(OnPolicyActorCritic):
                     gae=gae[idx],
                 )
 
-        if writer:
-            writer.add_scalar("loss/critic", loss_critic, self.learning_step)
-            writer.add_scalar("loss/actor", loss_actor, self.learning_step)
+        if logger:
+            logger.add_scalar("loss/critic", loss_critic, self.learning_step)
+            logger.add_scalar("loss/actor", loss_actor, self.learning_step)
 
     @partial(jax.jit, static_argnums=0)
     def _loss_critic(

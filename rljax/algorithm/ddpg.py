@@ -5,11 +5,13 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from rljax.algorithm.base_class import OffPolicyActorCritic
 from rljax.network import ContinuousQFunction, DeterministicPolicy
 from rljax.util import add_noise, optimize
+from typing import Optional
+from rljax.logger import Logger
 
 
 class DDPG(OffPolicyActorCritic):
@@ -81,13 +83,13 @@ class DDPG(OffPolicyActorCritic):
         # Critic.
         self.critic = hk.without_apply_rng(hk.transform(fn_critic))
         self.params_critic = self.params_critic_target = self.critic.init(next(self.rng), *self.fake_args_critic)
-        opt_init, self.opt_critic = optix.adam(lr_critic)
+        opt_init, self.opt_critic = optax.adam(lr_critic)
         self.opt_state_critic = opt_init(self.params_critic)
 
         # Actor.
         self.actor = hk.without_apply_rng(hk.transform(fn_actor))
         self.params_actor = self.params_actor_target = self.actor.init(next(self.rng), *self.fake_args_actor)
-        opt_init, self.opt_actor = optix.adam(lr_actor)
+        opt_init, self.opt_actor = optax.adam(lr_actor)
         self.opt_state_actor = opt_init(self.params_actor)
 
         # Other parameters.
@@ -112,7 +114,7 @@ class DDPG(OffPolicyActorCritic):
         action = self.actor.apply(params_actor, state)
         return add_noise(action, key, self.std, -1.0, 1.0)
 
-    def update(self, writer=None):
+    def update(self, logger: Optional[Logger] = None):
         self.learning_step += 1
         weight, batch = self.buffer.sample(self.batch_size)
         state, action, reward, done, next_state = batch
@@ -134,7 +136,6 @@ class DDPG(OffPolicyActorCritic):
             weight=weight,
             **self.kwargs_critic,
         )
-        self.params_critic_target = self._update_target(self.params_critic_target, self.params_critic)
 
         # Update priority.
         if self.use_per:
@@ -152,11 +153,14 @@ class DDPG(OffPolicyActorCritic):
                 state=state,
                 **self.kwargs_actor,
             )
+
+            self.params_critic_target = self._update_target(self.params_critic_target, self.params_critic)
             self.params_actor_target = self._update_target(self.params_actor_target, self.params_actor)
 
-            if writer and self.learning_step % 1000 == 0:
-                writer.add_scalar("loss/critic", loss_critic, self.learning_step)
-                writer.add_scalar("loss/actor", loss_actor, self.learning_step)
+            if logger:
+                logger.record("loss/critic", loss_critic)
+                logger.record("loss/actor", loss_actor)
+
 
     @partial(jax.jit, static_argnums=0)
     def _sample_action(

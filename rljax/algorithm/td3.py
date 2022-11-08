@@ -78,6 +78,6 @@ class TD3(DDPG):
         params_actor: hk.Params,
         state: np.ndarray,
         key: jnp.ndarray,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    ) -> jnp.ndarray:
         action = self.actor.apply(params_actor, state)
         return add_noise(action, key, self.std_target, -1.0, 1.0, -self.clip_noise, self.clip_noise)

@@ -5,7 +5,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from rljax.algorithm.base_class import QLearning
 from rljax.network import DiscreteQFunction
@@ -74,7 +74,7 @@ class DQN(QLearning):
 
             self.net = hk.without_apply_rng(hk.transform(fn))
             self.params = self.params_target = self.net.init(next(self.rng), *self.fake_args)
-            opt_init, self.opt = optix.adam(lr, eps=0.01 / batch_size)
+            opt_init, self.opt = optax.adam(lr, eps=0.01 / batch_size)
             self.opt_state = opt_init(self.params)
 
     @partial(jax.jit, static_argnums=0)
@@ -85,7 +85,7 @@ class DQN(QLearning):
     ) -> jnp.ndarray:
         return jnp.argmax(self.net.apply(params, state), axis=1)
 
-    def update(self, writer=None):
+    def update(self, logger=None):
         self.learning_step += 1
         weight, batch = self.buffer.sample(self.batch_size)
         state, action, reward, done, next_state = batch
@@ -114,8 +114,8 @@ class DQN(QLearning):
         if self.agent_step % self.update_interval_target == 0:
             self.params_target = self._update_target(self.params_target, self.params)
 
-        if writer and self.learning_step % 1000 == 0:
-            writer.add_scalar("loss/q", loss, self.learning_step)
+        if logger:
+            logger.record("loss/q", loss)
 
     @partial(jax.jit, static_argnums=0)
     def _calculate_value(

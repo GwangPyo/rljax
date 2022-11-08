@@ -1,12 +1,13 @@
 import os
 from abc import abstractmethod
 from functools import partial
-from typing import List
+from typing import List, Tuple
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
+
 
 from rljax.algorithm.base_class.base_algoirithm import OffPolicyAlgorithm, OnPolicyAlgorithm
 from rljax.util import fake_action, fake_state, load_params, save_params
@@ -159,8 +160,8 @@ class OffPolicyActorCritic(ActorCriticMixIn, OffPolicyAlgorithm):
     def _calculate_value_list(
         self,
         params_critic: hk.Params,
-        state: np.ndarray,
-        action: np.ndarray,
+        state: jnp.ndarray,
+        action: jnp.ndarray,
     ) -> List[jnp.ndarray]:
         return self.critic.apply(params_critic, state, action)
 
@@ -168,8 +169,8 @@ class OffPolicyActorCritic(ActorCriticMixIn, OffPolicyAlgorithm):
     def _calculate_value(
         self,
         params_critic: hk.Params,
-        state: np.ndarray,
-        action: np.ndarray,
+        state: jnp.ndarray,
+        action: jnp.ndarray,
     ) -> jnp.ndarray:
         return jnp.asarray(self._calculate_value_list(params_critic, state, action)).min(axis=0)
 
@@ -182,8 +183,8 @@ class OffPolicyActorCritic(ActorCriticMixIn, OffPolicyAlgorithm):
         self,
         value_list: List[jnp.ndarray],
         target: jnp.ndarray,
-        weight: np.ndarray,
-    ) -> jnp.ndarray:
+        weight: jnp.ndarray,
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
         abs_td = jnp.abs(target - value_list[0])
         loss_critic = (jnp.square(abs_td) * weight).mean()
         for value in value_list[1:]:

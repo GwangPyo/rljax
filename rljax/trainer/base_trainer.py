@@ -1,9 +1,11 @@
 import os
 from datetime import timedelta
-from time import sleep, time
+from time import sleep
+import time as pytime
 
 import pandas as pd
-from tensorboardX import SummaryWriter
+from tqdm import tqdm
+from rljax.logger import Logger
 
 
 class Trainer:
@@ -22,7 +24,7 @@ class Trainer:
         num_agent_steps=10 ** 6,
         eval_interval=10 ** 4,
         num_eval_episodes=10,
-        save_params=False,
+        save_params=True,
     ):
         assert num_agent_steps % action_repeat == 0
         assert eval_interval % action_repeat == 0
@@ -42,8 +44,7 @@ class Trainer:
         self.log = {"step": [], "return": []}
         self.csv_path = os.path.join(log_dir, "log.csv")
         self.param_dir = os.path.join(log_dir, "param")
-        self.writer = SummaryWriter(log_dir=os.path.join(log_dir, "summary"))
-
+        self.logger = Logger(folder=os.path.join(log_dir, "summary"), output_formats=['stdout', 'tensorboard'])
         # Other parameters.
         self.action_repeat = action_repeat
         self.num_agent_steps = num_agent_steps
@@ -53,23 +54,30 @@ class Trainer:
 
     def train(self):
         # Time to start training.
-        self.start_time = time()
+        self.start_time = pytime.time()
         # Initialize the environment.
         state = self.env.reset()
 
         for step in range(1, self.num_agent_steps + 1):
-            state = self.algo.step(self.env, state)
+            state = self.algo.step(self.env, state, self.logger)
 
             if self.algo.is_update():
-                self.algo.update(self.writer)
+                self.algo.update(self.logger)
 
             if step % self.eval_interval == 0:
+
+                if self.logger:
+
+                    fps = step / (pytime.time() - self.start_time)
+                    remaining_steps = (self.num_agent_steps - step)
+                    eta_second = int(remaining_steps / fps)
+                    self.logger.record("time/fps", int(fps), exclude="tensorboard")
+                    self.logger.record("time/eta", timedelta(seconds=eta_second), exclude="tensorboard")
                 self.evaluate(step)
                 if self.save_params:
                     self.algo.save_params(os.path.join(self.param_dir, f"step{step}"))
 
         # Wait for the logging to be finished.
-        sleep(2)
 
     def evaluate(self, step):
         total_return = 0.0
@@ -83,16 +91,16 @@ class Trainer:
 
         # Log mean return.
         mean_return = total_return / self.num_eval_episodes
-        # To TensorBoard.
-        self.writer.add_scalar("return/test", mean_return, step * self.action_repeat)
-        # To CSV.
-        self.log["step"].append(step * self.action_repeat)
-        self.log["return"].append(mean_return)
+        if self.logger:
+            # To TensorBoard.
+            self.logger.record("return/test", mean_return)
+            # To CSV.
+            self.logger.record("time/step", step * self.action_repeat)
+            self.logger.record("time/time_elapsed", self.time, exclude="tensorboard")
+            # Log to standard output.
+            self.logger.dump(step=step * self.action_repeat)
+
         pd.DataFrame(self.log).to_csv(self.csv_path, index=False)
-
-        # Log to standard output.
-        print(f"Num steps: {step * self.action_repeat:<6}   Return: {mean_return:<5.1f}   Time: {self.time}")
-
     @property
     def time(self):
-        return str(timedelta(seconds=int(time() - self.start_time)))
+        return str(timedelta(seconds=int(pytime.time() - self.start_time)))

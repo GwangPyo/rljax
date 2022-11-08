@@ -60,14 +60,14 @@ class SLACTrainer(Trainer):
         bar = tqdm(range(self.algo.initial_learning_steps))
         for _ in bar:
             bar.set_description("Updating latent variable model.")
-            self.algo.update_model(self.writer)
+            self.algo.update_model(self.logger)
 
         for step in range(1, self.num_agent_steps + 1):
             self.algo.step(self.env, self.ob)
 
             if self.algo.is_update():
-                self.algo.update_model(self.writer)
-                self.algo.update_sac(self.writer)
+                self.algo.update_model(self.logger)
+                self.algo.update_sac(self.logger)
 
             if step % self.eval_interval == 0:
                 self.evaluate(step)
@@ -93,7 +93,7 @@ class SLACTrainer(Trainer):
         # Log mean return.
         mean_return = total_return / self.num_eval_episodes
         # To TensorBoard.
-        self.writer.add_scalar("return/test", mean_return, step * self.action_repeat)
+        self.logger.add_scalar("return/test", mean_return, step * self.action_repeat)
         # To CSV.
         self.log["step"].append(step * self.action_repeat)
         self.log["return"].append(mean_return)

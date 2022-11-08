@@ -12,3 +12,12 @@ from .sac_discrete import SAC_Discrete
 from .slac import SLAC
 from .td3 import TD3
 from .tqc import TQC
+from .iqn_sac import IQNSAC
+from .iqn_td3 import IQNTD3
+from .rc_dsac import RCDSAC
+from .flow_sac import FlowSAC
+from .flow_td3 import FlowTD3
+from .iqn_flow_td3 import IQNFlowTD3
+from .rs_iqn_td3 import RS_IQNTD3
+from .rs_flow_td3 import RSFlowTD3
+from .rs_iqn_sac import RS_IQNSAC

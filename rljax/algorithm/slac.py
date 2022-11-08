@@ -5,7 +5,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from rljax.algorithm.misc import SlacMixIn
 from rljax.algorithm.sac import SAC
@@ -123,7 +123,7 @@ class SLAC(SlacMixIn, SAC):
             z2_dim=z2_dim,
             feature_dim=feature_dim,
         )
-        opt_init, self.opt_model = optix.adam(lr_model)
+        opt_init, self.opt_model = optax.adam(lr_model)
         self.opt_state_model = opt_init(self.params_model)
 
     @partial(jax.jit, static_argnums=0)
@@ -151,7 +151,7 @@ class SLAC(SlacMixIn, SAC):
         next_feature_action = jnp.concatenate([feature_[:, 1:].reshape([N, -1]), action_[:, 1:].reshape([N, -1])], axis=-1)
         return z_[:, -2], z_[:, -1], action_[:, -1], feature_action, next_feature_action
 
-    def update_sac(self, writer=None):
+    def update_sac(self, logger=None):
         self.learning_step_sac += 1
         state_, action_, reward, done = self.buffer.sample_sac(self.batch_size_sac)
         z, next_z, action, feature_action, next_feature_action = self.get_input_for_sac(
@@ -206,12 +206,13 @@ class SLAC(SlacMixIn, SAC):
         # Update target network.
         self.params_critic_target = self._update_target(self.params_critic_target, self.params_critic)
 
-        if writer and self.learning_step_sac % 1000 == 0:
-            writer.add_scalar("loss/critic", loss_critic, self.learning_step_sac)
-            writer.add_scalar("loss/actor", loss_actor, self.learning_step_sac)
-            writer.add_scalar("loss/alpha", loss_alpha, self.learning_step_sac)
-            writer.add_scalar("stat/alpha", jnp.exp(self.log_alpha), self.learning_step_sac)
-            writer.add_scalar("stat/entropy", -mean_log_pi, self.learning_step_sac)
+        if logger:
+            logger.record("loss/critic", loss_critic)
+            logger.record("loss/actor", loss_actor)
+            logger.record("loss/alpha", loss_alpha)
+            logger.record("stat/alpha", jnp.exp(self.log_alpha))
+            logger.record("stat/entropy", -mean_log_pi)
+
 
     @partial(jax.jit, static_argnums=0)
     def _calculate_target(

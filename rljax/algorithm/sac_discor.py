@@ -77,7 +77,7 @@ class SAC_DisCor(DisCorMixIn, SAC):
             init_error=init_error,
         )
 
-    def update(self, writer=None):
+    def update(self, logger=None):
         self.learning_step += 1
         _, batch = self.buffer.sample(self.batch_size)
         state, action, reward, done, next_state = batch
@@ -156,10 +156,11 @@ class SAC_DisCor(DisCorMixIn, SAC):
         self.params_error_target = self._update_target(self.params_error_target, self.params_error)
         self.rm_error_list = self._update_target(self.rm_error_list, mean_error_list)
 
-        if writer and self.learning_step % 1000 == 0:
-            writer.add_scalar("loss/critic", loss_critic, self.learning_step)
-            writer.add_scalar("loss/actor", loss_actor, self.learning_step)
-            writer.add_scalar("loss/alpha", loss_alpha, self.learning_step)
-            writer.add_scalar("loss/error", loss_error, self.learning_step)
-            writer.add_scalar("stat/alpha", jnp.exp(self.log_alpha), self.learning_step)
-            writer.add_scalar("stat/entropy", -mean_log_pi, self.learning_step)
+        if logger:
+            logger.record("loss/critic", loss_critic)
+            logger.record("loss/actor", loss_actor)
+            logger.record("loss/alpha", loss_alpha)
+            logger.record("loss/error", loss_error)
+            logger.record("stat/alpha", jnp.exp(self.log_alpha))
+            logger.record("stat/entropy", -mean_log_pi)
+

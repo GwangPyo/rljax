@@ -2,18 +2,13 @@ from collections import deque
 
 import numpy as np
 from gym.spaces import Box, Discrete
-
+import jax.numpy as jnp
 
 class NStepBuffer:
     """
     Buffer for calculating n-step returns.
     """
-
-    def __init__(
-        self,
-        gamma=0.99,
-        nstep=3,
-    ):
+    def __init__(self, gamma: float = 0.99, nstep: int = 3):
         self.discount = [gamma ** i for i in range(nstep)]
         self.nstep = nstep
         self.state = deque(maxlen=self.nstep)
@@ -144,5 +139,7 @@ class ReplayBuffer:
         idxes = self._sample_idx(batch_size)
         batch = self._sample(idxes)
         # Use fake weight to use the same interface with PER.
-        weight = np.ones((), dtype=np.float32)
+        weight = jnp.ones((), dtype=jnp.float32)
+        batch = tuple(map(jnp.array, batch))
         return weight, batch
+

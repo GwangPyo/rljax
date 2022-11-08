@@ -5,9 +5,11 @@ from .critic import (
     ContinuousQFunction,
     ContinuousQuantileFunction,
     ContinuousVFunction,
+    ContinuousImplicitQuantileFunction,
     DiscreteImplicitQuantileFunction,
     DiscreteQFunction,
     DiscreteQuantileFunction,
+    ContinuousMonotoneImplicitQuantileFunction
 )
 from .misc import (
     ConstantGaussian,

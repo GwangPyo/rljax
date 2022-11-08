@@ -35,7 +35,7 @@ def run(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--env_id", type=str, default="HalfCheetah-v3")
+    p.add_argument("--env_id", type=str, default="Pendulum-v0")
     p.add_argument("--num_agent_steps", type=int, default=3 * 10 ** 6)
     p.add_argument("--eval_interval", type=int, default=10000)
     p.add_argument("--seed", type=int, default=0)

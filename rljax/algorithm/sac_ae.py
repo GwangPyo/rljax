@@ -6,7 +6,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from rljax.algorithm.sac import SAC
 from rljax.network import ContinuousQFunction, SACDecoder, SACEncoder, SACLinear, StateDependentGaussianPolicy
@@ -156,7 +156,7 @@ class SAC_AE(SAC):
     ) -> jnp.ndarray:
         return self.encoder.apply(params_encoder, state)
 
-    def update(self, writer=None):
+    def update(self, logger=None):
         self.learning_step += 1
         weight, batch = self.buffer.sample(self.batch_size)
         state, action, reward, done, next_state = batch
@@ -230,13 +230,13 @@ class SAC_AE(SAC):
             self.params_linear_target = self._update_target_ae(self.params_linear_target, self.params_linear)
             self.params_critic_target = self._update_target(self.params_critic_target, self.params_critic)
 
-        if writer and self.learning_step % 1000 == 0:
-            writer.add_scalar("loss/critic", loss_critic, self.learning_step)
-            writer.add_scalar("loss/actor", loss_actor, self.learning_step)
-            writer.add_scalar("loss/ae", loss_ae, self.learning_step)
-            writer.add_scalar("loss/alpha", loss_alpha, self.learning_step)
-            writer.add_scalar("stat/alpha", jnp.exp(self.log_alpha), self.learning_step)
-            writer.add_scalar("stat/entropy", -mean_log_pi, self.learning_step)
+        if logger:
+            logger.record("loss/critic", loss_critic)
+            logger.record("loss/actor", loss_actor)
+            logger.record("loss/ae", loss_ae)
+            logger.record("loss/alpha", loss_alpha)
+            logger.record("stat/alpha", jnp.exp(self.log_alpha))
+            logger.record("stat/entropy", -mean_log_pi)
 
     @partial(jax.jit, static_argnums=0)
     def _calculate_value_list(
